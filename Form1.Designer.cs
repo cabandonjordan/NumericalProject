@@ -132,6 +132,7 @@
             stoppingErrors.PlaceholderText = "Enter Es";
             stoppingErrors.Size = new Size(304, 23);
             stoppingErrors.TabIndex = 1;
+            stoppingErrors.Leave += stoppingErrors_Leave_1;
             // 
             // panel5
             // 

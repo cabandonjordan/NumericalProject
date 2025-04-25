@@ -3,18 +3,13 @@ using System.Data;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
-using System.Xml.Linq;
 using NCalc;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace NumericalProject
 {
     public partial class Form1 : Form
     {
-        public string function;
-        public decimal x0;
-        public decimal x1;
-        public decimal Es;
-
         public Form1()
         {
             InitializeComponent();
@@ -26,7 +21,10 @@ namespace NumericalProject
             {
                 double x0 = double.Parse(x0Txt.Text, CultureInfo.InvariantCulture);
                 double x1 = double.Parse(x1Txt.Text, CultureInfo.InvariantCulture);
-                double stoppingError = double.Parse(stoppingErrors.Text, CultureInfo.InvariantCulture);
+
+                string cleanStopping = stoppingErrors.Text.Replace("%", "").Trim();
+                double stoppingError = double.Parse(cleanStopping, CultureInfo.InvariantCulture);
+
                 string expression = functions.Text.Trim();
 
                 if (!int.TryParse(decimalTxt.Text, out int decimalPlaces) || decimalPlaces < 0 || decimalPlaces > 15)
@@ -51,7 +49,7 @@ namespace NumericalProject
                 double root = 0;
                 double previousRoot = x1;
 
-                while (absoluteError > stoppingError && relativeError > stoppingError)
+                while (relativeError > stoppingError)
                 {
                     double f_x0 = EvaluateExpression(expression, x0);
                     double f_x1 = EvaluateExpression(expression, x1);
@@ -96,7 +94,7 @@ namespace NumericalProject
                 }
 
                 iterationsGrid.DataSource = dt;
-                roots.Text = (absoluteError <= stoppingError || relativeError <= stoppingError) ?
+                roots.Text = (relativeError <= stoppingError) ?
                     root.ToString(decimalFormat) : "No root found within stopping criterion.";
 
                 if (iterationsGrid.Rows.Count > 0)
@@ -107,6 +105,7 @@ namespace NumericalProject
                 MessageBox.Show($"Error: {ex.Message}");
             }
         }
+
         private double EvaluateExpression(string expression, double x)
         {
             try
@@ -125,30 +124,14 @@ namespace NumericalProject
                     double num = Convert.ToDouble(args.Parameters[0].Evaluate());
                     switch (name.ToLower())
                     {
-                        case "sin":
-                            args.Result = Math.Sin(num);
-                            break;
-                        case "cos":
-                            args.Result = Math.Cos(num);
-                            break;
-                        case "tan":
-                            args.Result = Math.Tan(num);
-                            break;
-                        case "log":
-                            args.Result = Math.Log(num);
-                            break;
-                        case "log10":
-                            args.Result = Math.Log10(num);
-                            break;
-                        case "exp":
-                            args.Result = Math.Exp(num);
-                            break;
-                        case "sqrt":
-                            args.Result = Math.Sqrt(num);
-                            break;
-                        case "abs":
-                            args.Result = Math.Abs(num);
-                            break;
+                        case "sin": args.Result = Math.Sin(num); break;
+                        case "cos": args.Result = Math.Cos(num); break;
+                        case "tan": args.Result = Math.Tan(num); break;
+                        case "log": args.Result = Math.Log(num); break;
+                        case "log10": args.Result = Math.Log10(num); break;
+                        case "exp": args.Result = Math.Exp(num); break;
+                        case "sqrt": args.Result = Math.Sqrt(num); break;
+                        case "abs": args.Result = Math.Abs(num); break;
                     }
                 };
 
@@ -160,10 +143,10 @@ namespace NumericalProject
                 throw new Exception($"Invalid expression: {expression}. Error: {ex.Message}");
             }
         }
+
         private string PrepareExpression(string expr)
         {
             expr = Regex.Replace(expr, @"\s+", "");
-
             expr = Regex.Replace(expr, @"(\d+)([a-zA-Z])", "$1*$2");
             expr = Regex.Replace(expr, @"([a-zA-Z])(\d+)", "$1*$2");
             expr = Regex.Replace(expr, @"([a-zA-Z])\(", "$1*(");
@@ -175,11 +158,19 @@ namespace NumericalProject
             {
                 expr = Regex.Replace(expr, $@"{func}([^()a-zA-Z]*[a-zA-Z0-9.]+)", $"{func}($1)", RegexOptions.IgnoreCase);
             }
-            expr = Regex.Replace(expr, @"ln\(", "log(", RegexOptions.IgnoreCase);
 
+            expr = Regex.Replace(expr, @"ln\(", "log(", RegexOptions.IgnoreCase);
             expr = Regex.Replace(expr, @"([a-zA-Z0-9.]+)\^([a-zA-Z0-9.]+)", "Pow($1,$2)");
 
             return expr;
+        }
+
+        private void stoppingErrors_Leave_1(object sender, EventArgs e)
+        {
+            if (double.TryParse(stoppingErrors.Text.Replace("%", ""), out double value))
+            {
+                stoppingErrors.Text = value.ToString() + " %";
+            }
         }
     }
 }
