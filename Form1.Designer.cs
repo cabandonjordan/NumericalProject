@@ -44,6 +44,7 @@
             label5 = new Label();
             label6 = new Label();
             label7 = new Label();
+            secantGraph = new OxyPlot.WindowsForms.PlotView();
             panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)iterationsGrid).BeginInit();
             SuspendLayout();
@@ -56,7 +57,7 @@
             panel1.Location = new Point(0, 0);
             panel1.Margin = new Padding(3, 2, 3, 2);
             panel1.Name = "panel1";
-            panel1.Size = new Size(1041, 64);
+            panel1.Size = new Size(1128, 64);
             panel1.TabIndex = 0;
             // 
             // label1
@@ -105,7 +106,6 @@
             stoppingErrors.PlaceholderText = "Enter Es";
             stoppingErrors.Size = new Size(304, 23);
             stoppingErrors.TabIndex = 1;
-            stoppingErrors.Leave += stoppingErrors_Leave_1;
             // 
             // iterationsGrid
             // 
@@ -119,7 +119,7 @@
             iterationsGrid.Name = "iterationsGrid";
             iterationsGrid.ReadOnly = true;
             iterationsGrid.RowHeadersWidth = 51;
-            iterationsGrid.Size = new Size(664, 369);
+            iterationsGrid.Size = new Size(775, 259);
             iterationsGrid.TabIndex = 1;
             // 
             // calculate
@@ -127,7 +127,7 @@
             calculate.BackColor = Color.Maroon;
             calculate.Font = new Font("Segoe UI", 24F, FontStyle.Bold, GraphicsUnit.Point, 0);
             calculate.ForeColor = Color.Gold;
-            calculate.Location = new Point(12, 517);
+            calculate.Location = new Point(12, 541);
             calculate.Margin = new Padding(3, 2, 3, 2);
             calculate.Name = "calculate";
             calculate.Size = new Size(304, 65);
@@ -165,10 +165,11 @@
             roots.BackColor = Color.MistyRose;
             roots.BorderStyle = BorderStyle.None;
             roots.Font = new Font("Century Gothic", 13.8F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            roots.Location = new Point(11, 434);
+            roots.Location = new Point(12, 438);
             roots.Margin = new Padding(3, 2, 3, 2);
             roots.Name = "roots";
             roots.PlaceholderText = "Root";
+            roots.ReadOnly = true;
             roots.Size = new Size(304, 23);
             roots.TabIndex = 1;
             // 
@@ -226,18 +227,31 @@
             // 
             label7.AutoSize = true;
             label7.Font = new Font("Century Gothic", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            label7.Location = new Point(10, 413);
+            label7.Location = new Point(12, 406);
             label7.Name = "label7";
             label7.Size = new Size(42, 19);
             label7.TabIndex = 10;
             label7.Text = "Root";
+            // 
+            // secantGraph
+            // 
+            secantGraph.Location = new Point(341, 347);
+            secantGraph.Name = "secantGraph";
+            secantGraph.PanCursor = Cursors.Hand;
+            secantGraph.Size = new Size(775, 258);
+            secantGraph.TabIndex = 11;
+            secantGraph.Text = "plotView1";
+            secantGraph.ZoomHorizontalCursor = Cursors.SizeWE;
+            secantGraph.ZoomRectangleCursor = Cursors.SizeNWSE;
+            secantGraph.ZoomVerticalCursor = Cursors.SizeNS;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.White;
-            ClientSize = new Size(1041, 593);
+            ClientSize = new Size(1128, 617);
+            Controls.Add(secantGraph);
             Controls.Add(label7);
             Controls.Add(label6);
             Controls.Add(label5);
@@ -283,5 +297,6 @@
         private Label label5;
         private Label label6;
         private Label label7;
+        private OxyPlot.WindowsForms.PlotView secantGraph;
     }
 }

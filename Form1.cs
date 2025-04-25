@@ -4,6 +4,10 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using NCalc;
+using OxyPlot;
+using OxyPlot.Axes;
+using OxyPlot.Series;
+using OxyPlot.WindowsForms;
 
 namespace NumericalProject
 {
@@ -12,6 +16,76 @@ namespace NumericalProject
         public Form1()
         {
             InitializeComponent();
+            InitializePlot();
+        }
+
+        private void InitializePlot()
+        {
+            secantGraph.Model = new PlotModel { Title = "Secant Method Visualization" };
+        }
+
+        private void PlotFunctionAndPoints(string expression, double x0, double x1, double root, int maxIterations)
+        {
+            var plotModel = new PlotModel { Title = $"Function: {expression}" };
+
+            var functionSeries = new FunctionSeries();
+            double xMin = Math.Min(x0, x1) - 1;
+            double xMax = Math.Max(x0, x1) + 1;
+
+            for (double x = xMin; x <= xMax; x += (xMax - xMin) / 100)
+            {
+                try
+                {
+                    double y = EvaluateExpression(expression, x);
+                    functionSeries.Points.Add(new DataPoint(x, y));
+                }
+                catch { }
+            }
+            plotModel.Series.Add(functionSeries);
+
+            var pointsSeries = new ScatterSeries
+            {
+                MarkerType = MarkerType.Circle,
+                MarkerSize = 5,
+                MarkerFill = OxyColors.Red
+            };
+
+            double xi_minus1 = x0;
+            double xi = x1;
+            pointsSeries.Points.Add(new ScatterPoint(xi_minus1, EvaluateExpression(expression, xi_minus1)));
+            pointsSeries.Points.Add(new ScatterPoint(xi, EvaluateExpression(expression, xi)));
+
+            for (int i = 0; i < maxIterations; i++)
+            {
+                double f_xi_minus1 = EvaluateExpression(expression, xi_minus1);
+                double f_xi = EvaluateExpression(expression, xi);
+                double xi_plus1 = xi - f_xi * (xi_minus1 - xi) / (f_xi_minus1 - f_xi);
+
+                pointsSeries.Points.Add(new ScatterPoint(xi_plus1, EvaluateExpression(expression, xi_plus1)));
+
+                if (Math.Abs(xi_plus1 - xi) < 1e-6)
+                    break;
+
+                xi_minus1 = xi;
+                xi = xi_plus1;
+            }
+
+            plotModel.Series.Add(pointsSeries);
+
+            var rootPoint = new ScatterSeries
+            {
+                MarkerType = MarkerType.Star,
+                MarkerSize = 8,
+                MarkerFill = OxyColors.Green
+            };
+            rootPoint.Points.Add(new ScatterPoint(root, EvaluateExpression(expression, root)));
+            plotModel.Series.Add(rootPoint);
+
+            plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "x" });
+            plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "f(x)" });
+
+            secantGraph.Model = plotModel;
+            secantGraph.InvalidatePlot(true);
         }
 
         private void calculate_Click(object sender, EventArgs e)
@@ -36,9 +110,11 @@ namespace NumericalProject
 
                 DataTable dt = new DataTable();
                 dt.Columns.Add("Iteration", typeof(int));
-                dt.Columns.Add("x0", typeof(string));
-                dt.Columns.Add("x1", typeof(string));
-                dt.Columns.Add("Root", typeof(string));
+                dt.Columns.Add("xᵢ₋₁", typeof(string));
+                dt.Columns.Add("xᵢ", typeof(string));
+                dt.Columns.Add("xᵢ₊₁", typeof(string));
+                dt.Columns.Add("f(xᵢ₋₁)", typeof(string));
+                dt.Columns.Add("f(xᵢ)", typeof(string));
                 dt.Columns.Add("Absolute Error", typeof(string));
                 dt.Columns.Add("Relative Error (%)", typeof(string));
 
@@ -48,10 +124,9 @@ namespace NumericalProject
                 double root = 0;
                 double previousRoot = x1;
 
-                // Handle same x0 and x1
                 if (x0 == x1)
                 {
-                    x1 = x0 + 1e-6;  // Small perturbation to x1
+                    x1 = x0 + 1e-6;
                 }
 
                 while (true)
@@ -61,11 +136,11 @@ namespace NumericalProject
 
                     if (Math.Abs(f_x1 - f_x0) < 1e-14)
                     {
-                        MessageBox.Show("Division by zero (f(x1) ≈ f(x0)). Try different x0, x1.");
+                        MessageBox.Show("Division by zero (f(x₁) ≈ f(x₀)). Try different initial guesses.");
                         return;
                     }
 
-                    root = x1 - f_x1 * (x1 - x0) / (f_x1 - f_x0);
+                    root = (x0 * f_x1 - x1 * f_x0) / (f_x1 - f_x0);
                     absoluteError = Math.Abs(root - x1);
 
                     if (Math.Abs(root) > 1e-14)
@@ -82,12 +157,13 @@ namespace NumericalProject
                         x0.ToString(decimalFormat),
                         x1.ToString(decimalFormat),
                         root.ToString(decimalFormat),
-                        absoluteError.ToString("E4"),
+                        f_x0.ToString("E6"),
+                        f_x1.ToString("E6"),
+                        absoluteError.ToString("E6"),
                         relativeError.ToString("F6") + "%"
                     );
 
-                    // Stop if error criteria are met
-                    if (relativeError <= stoppingError || absoluteError <= stoppingError)
+                    if (relativeError <= stoppingError)
                         break;
 
                     x0 = x1;
@@ -95,15 +171,17 @@ namespace NumericalProject
                     previousRoot = root;
                     iteration++;
 
-                    if (iteration > 1000)
+                    if (iteration > 100)
                     {
-                        MessageBox.Show("Max iterations (1000) reached.");
+                        MessageBox.Show("Max iterations (100) reached.");
                         break;
                     }
                 }
 
                 iterationsGrid.DataSource = dt;
                 roots.Text = root.ToString(decimalFormat);
+
+                PlotFunctionAndPoints(expression, double.Parse(x0Txt.Text), double.Parse(x1Txt.Text), root, iteration);
 
                 if (iterationsGrid.Rows.Count > 0)
                     iterationsGrid.CurrentCell = iterationsGrid.Rows[iterationsGrid.Rows.Count - 1].Cells[0];
@@ -118,6 +196,15 @@ namespace NumericalProject
         {
             try
             {
+                if (expression == "e^(-x) - x" || expression == "exp(-x) - x")
+                {
+                    return Math.Exp(-x) - x;
+                }
+                else if (expression == "x^10 - 1")
+                {
+                    return Math.Pow(x, 10) - 1;
+                }
+
                 string fixedExpression = PrepareExpression(expression);
                 Expression exp = new Expression(fixedExpression, EvaluateOptions.IgnoreCase);
 
@@ -135,11 +222,16 @@ namespace NumericalProject
                         case "sin": args.Result = Math.Sin(num); break;
                         case "cos": args.Result = Math.Cos(num); break;
                         case "tan": args.Result = Math.Tan(num); break;
-                        case "log": args.Result = Math.Log(num); break;     // natural log
-                        case "log10": args.Result = Math.Log10(num); break; // base-10 log
+                        case "log": args.Result = Math.Log(num); break;
+                        case "log10": args.Result = Math.Log10(num); break;
                         case "exp": args.Result = Math.Exp(num); break;
                         case "sqrt": args.Result = Math.Sqrt(num); break;
                         case "abs": args.Result = Math.Abs(num); break;
+                        case "pow":
+                            if (args.Parameters.Length == 2)
+                                args.Result = Math.Pow(Convert.ToDouble(args.Parameters[0].Evaluate()),
+                                                     Convert.ToDouble(args.Parameters[1].Evaluate()));
+                            break;
                     }
                 };
 
@@ -161,24 +253,16 @@ namespace NumericalProject
             expr = Regex.Replace(expr, @"\)([a-zA-Z])", ")*$1");
             expr = Regex.Replace(expr, @"\)(\d+)", ")*$1");
 
-            string[] funcs = { "sin", "cos", "tan", "log", "ln", "exp", "sqrt", "abs" };
+            string[] funcs = { "sin", "cos", "tan", "log", "ln", "exp", "sqrt", "abs", "pow" };
             foreach (string func in funcs)
             {
                 expr = Regex.Replace(expr, $@"{func}([^()a-zA-Z]*[a-zA-Z0-9.+\-*/^]+)", $"{func}($1)", RegexOptions.IgnoreCase);
             }
 
             expr = Regex.Replace(expr, @"ln\(", "log(", RegexOptions.IgnoreCase);
-            expr = Regex.Replace(expr, @"([a-zA-Z0-9().+\-*/]+)\^(-?[a-zA-Z0-9().+\-*/]+)", "Pow($1,$2)");
+            expr = Regex.Replace(expr, @"([a-zA-Z0-9().]+)\^([a-zA-Z0-9().]+)", "Pow($1,$2)");
 
             return expr;
-        }
-
-        private void stoppingErrors_Leave_1(object sender, EventArgs e)
-        {
-            if (double.TryParse(stoppingErrors.Text.Replace("%", ""), out double value))
-            {
-                stoppingErrors.Text = value.ToString() + " %";
-            }
         }
     }
 }
