@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using NCalc;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace NumericalProject
 {
@@ -49,7 +48,13 @@ namespace NumericalProject
                 double root = 0;
                 double previousRoot = x1;
 
-                while (relativeError > stoppingError)
+                // Handle same x0 and x1
+                if (x0 == x1)
+                {
+                    x1 = x0 + 1e-6;  // Small perturbation to x1
+                }
+
+                while (true)
                 {
                     double f_x0 = EvaluateExpression(expression, x0);
                     double f_x1 = EvaluateExpression(expression, x1);
@@ -81,6 +86,10 @@ namespace NumericalProject
                         relativeError.ToString("F6") + "%"
                     );
 
+                    // Stop if error criteria are met
+                    if (relativeError <= stoppingError || absoluteError <= stoppingError)
+                        break;
+
                     x0 = x1;
                     x1 = root;
                     previousRoot = root;
@@ -94,8 +103,7 @@ namespace NumericalProject
                 }
 
                 iterationsGrid.DataSource = dt;
-                roots.Text = (relativeError <= stoppingError) ?
-                    root.ToString(decimalFormat) : "No root found within stopping criterion.";
+                roots.Text = root.ToString(decimalFormat);
 
                 if (iterationsGrid.Rows.Count > 0)
                     iterationsGrid.CurrentCell = iterationsGrid.Rows[iterationsGrid.Rows.Count - 1].Cells[0];
@@ -127,8 +135,8 @@ namespace NumericalProject
                         case "sin": args.Result = Math.Sin(num); break;
                         case "cos": args.Result = Math.Cos(num); break;
                         case "tan": args.Result = Math.Tan(num); break;
-                        case "log": args.Result = Math.Log(num); break;
-                        case "log10": args.Result = Math.Log10(num); break;
+                        case "log": args.Result = Math.Log(num); break;     // natural log
+                        case "log10": args.Result = Math.Log10(num); break; // base-10 log
                         case "exp": args.Result = Math.Exp(num); break;
                         case "sqrt": args.Result = Math.Sqrt(num); break;
                         case "abs": args.Result = Math.Abs(num); break;
@@ -156,11 +164,11 @@ namespace NumericalProject
             string[] funcs = { "sin", "cos", "tan", "log", "ln", "exp", "sqrt", "abs" };
             foreach (string func in funcs)
             {
-                expr = Regex.Replace(expr, $@"{func}([^()a-zA-Z]*[a-zA-Z0-9.]+)", $"{func}($1)", RegexOptions.IgnoreCase);
+                expr = Regex.Replace(expr, $@"{func}([^()a-zA-Z]*[a-zA-Z0-9.+\-*/^]+)", $"{func}($1)", RegexOptions.IgnoreCase);
             }
 
             expr = Regex.Replace(expr, @"ln\(", "log(", RegexOptions.IgnoreCase);
-            expr = Regex.Replace(expr, @"([a-zA-Z0-9.]+)\^([a-zA-Z0-9.]+)", "Pow($1,$2)");
+            expr = Regex.Replace(expr, @"([a-zA-Z0-9().+\-*/]+)\^(-?[a-zA-Z0-9().+\-*/]+)", "Pow($1,$2)");
 
             return expr;
         }
