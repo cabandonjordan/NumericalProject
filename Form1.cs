@@ -8,6 +8,8 @@ using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
 using OxyPlot.WindowsForms;
+using Flee;
+using Flee.PublicTypes;
 
 namespace NumericalProject
 {
@@ -45,15 +47,26 @@ namespace NumericalProject
 
             var pointsSeries = new ScatterSeries
             {
+                Title = "Approximate Roots",
                 MarkerType = MarkerType.Circle,
-                MarkerSize = 5,
+                MarkerSize = 4,
                 MarkerFill = OxyColors.Red
+            };
+
+            var linesSeries = new LineSeries
+            {
+                Title = "Approximation Path",
+                Color = OxyColors.Gray,
+                LineStyle = LineStyle.Dash
             };
 
             double xi_minus1 = x0;
             double xi = x1;
+
             pointsSeries.Points.Add(new ScatterPoint(xi_minus1, EvaluateExpression(expression, xi_minus1)));
             pointsSeries.Points.Add(new ScatterPoint(xi, EvaluateExpression(expression, xi)));
+            linesSeries.Points.Add(new DataPoint(xi_minus1, EvaluateExpression(expression, xi_minus1)));
+            linesSeries.Points.Add(new DataPoint(xi, EvaluateExpression(expression, xi)));
 
             for (int i = 0; i < maxIterations; i++)
             {
@@ -61,7 +74,10 @@ namespace NumericalProject
                 double f_xi = EvaluateExpression(expression, xi);
                 double xi_plus1 = xi - f_xi * (xi_minus1 - xi) / (f_xi_minus1 - f_xi);
 
-                pointsSeries.Points.Add(new ScatterPoint(xi_plus1, EvaluateExpression(expression, xi_plus1)));
+                double yi_plus1 = EvaluateExpression(expression, xi_plus1);
+
+                pointsSeries.Points.Add(new ScatterPoint(xi_plus1, yi_plus1));
+                linesSeries.Points.Add(new DataPoint(xi_plus1, yi_plus1));
 
                 if (Math.Abs(xi_plus1 - xi) < 1e-6)
                     break;
@@ -70,10 +86,12 @@ namespace NumericalProject
                 xi = xi_plus1;
             }
 
+            plotModel.Series.Add(linesSeries);
             plotModel.Series.Add(pointsSeries);
 
             var rootPoint = new ScatterSeries
             {
+                Title = "Actual Root",
                 MarkerType = MarkerType.Star,
                 MarkerSize = 8,
                 MarkerFill = OxyColors.Green
@@ -84,12 +102,19 @@ namespace NumericalProject
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "x" });
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "f(x)" });
 
+            plotModel.IsLegendVisible = true;
+
             secantGraph.Model = plotModel;
             secantGraph.InvalidatePlot(true);
         }
 
         private void calculate_Click(object sender, EventArgs e)
         {
+            if(string.IsNullOrWhiteSpace(functions.Text) || string.IsNullOrWhiteSpace(x0Txt.Text) || string.IsNullOrWhiteSpace(x1Txt.Text))
+            {
+                MessageBox.Show("Please fill in all fields.");
+                return;
+            }
             try
             {
                 double x0 = double.Parse(x0Txt.Text, CultureInfo.InvariantCulture);
@@ -196,51 +221,25 @@ namespace NumericalProject
         {
             try
             {
-                if (expression == "e^(-x) - x" || expression == "exp(-x) - x")
-                {
-                    return Math.Exp(-x) - x;
-                }
-                else if (expression == "x^10 - 1")
-                {
-                    return Math.Pow(x, 10) - 1;
-                }
+                var context = new ExpressionContext();
+                context.Variables["x"] = x;
+                context.Variables["e"] = Math.E;
+                context.Variables["pi"] = Math.PI;
 
-                string fixedExpression = PrepareExpression(expression);
-                Expression exp = new Expression(fixedExpression, EvaluateOptions.IgnoreCase);
+                context.Imports.AddType(typeof(Math));
 
-                exp.Parameters["x"] = x;
-                exp.Parameters["e"] = Math.E;
-                exp.Parameters["pi"] = Math.PI;
+                context.Options.ParseCulture = CultureInfo.InvariantCulture;
+                context.Options.RealLiteralDataType = RealLiteralDataType.Double;
 
-                exp.EvaluateFunction += (name, args) =>
-                {
-                    if (args.Parameters.Length == 0) return;
+                string preparedExpr = PrepareExpression(expression);
+                IDynamicExpression e = context.CompileDynamic(preparedExpr);
 
-                    double num = Convert.ToDouble(args.Parameters[0].Evaluate());
-                    switch (name.ToLower())
-                    {
-                        case "sin": args.Result = Math.Sin(num); break;
-                        case "cos": args.Result = Math.Cos(num); break;
-                        case "tan": args.Result = Math.Tan(num); break;
-                        case "log": args.Result = Math.Log(num); break;
-                        case "log10": args.Result = Math.Log10(num); break;
-                        case "exp": args.Result = Math.Exp(num); break;
-                        case "sqrt": args.Result = Math.Sqrt(num); break;
-                        case "abs": args.Result = Math.Abs(num); break;
-                        case "pow":
-                            if (args.Parameters.Length == 2)
-                                args.Result = Math.Pow(Convert.ToDouble(args.Parameters[0].Evaluate()),
-                                                     Convert.ToDouble(args.Parameters[1].Evaluate()));
-                            break;
-                    }
-                };
-
-                object result = exp.Evaluate();
+                object result = e.Evaluate();
                 return Convert.ToDouble(result, CultureInfo.InvariantCulture);
             }
             catch (Exception ex)
             {
-                throw new Exception($"Invalid expression: {expression}. Error: {ex.Message}");
+                throw new Exception($"Expression Evaluation Error: {ex.Message}");
             }
         }
 
